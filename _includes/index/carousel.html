@@ -1,5 +1,6 @@
 {%- comment -%} 
-    Carousel.html - Updated for Honors Project: Description truncated before "loc"
+    Carousel.html - Updated for Honors Project: 
+    Description strictly truncated at the first comma.
 {%- endcomment -%}
 
 {%- assign carousel-max = include.max | default: 48 -%}
@@ -15,6 +16,7 @@
 {%- endif -%}
 
 <style>
+    /* Clean background and auto-height for the container */
     #imageCarousel .carousel-item { height: auto !important; }
     .carousel-inner { background: transparent !important; border: none !important; }
 </style>
@@ -39,7 +41,7 @@
 </div>
 
 <script>
-    /* Data List: Title, ID, Image, ParentID, Alt, and Description (index 5) */
+    /* Data List: Added Description as the 6th element (index 5) */
     var carouselItems = [ {% for c in carousel-items %}[ {{ c.title | escape | jsonify }}, "{{ c.objectid }}", {% if c.image_small %}{{ c.image_small | relative_url | jsonify }}{% else %}{{ c.image_thumb | relative_url | jsonify }}{% endif %}, "{{ c.parentid }}", {{ c.image_alt_text | default: c.title | escape | jsonify }}, {{ c.description | escape | jsonify }} ]{% unless forloop.last %}, {% endunless %}{% endfor %}];
     
     /* Shuffle items randomly */
@@ -52,16 +54,11 @@
         let itemImg = carouselItems[i][2];
         let itemLink = (carouselItems[i][3]) ? '{{ "/items/" | relative_url }}' + carouselItems[i][3] + '.html#' + carouselItems[i][1] : '{{ "/items/" | relative_url }}' + carouselItems[i][1] + '.html';
         
-        /* Truncation Logic */
+        /* GUARANTEED TRUNCATION: 
+           Split the description at the first comma and take only the first part.
+        */
         let rawDesc = carouselItems[i][5] || "";
-        let cleanDesc = rawDesc;
-        
-        // Find "loc" regardless of case
-        let locIndex = rawDesc.toLowerCase().indexOf("loc");
-        if (locIndex !== -1) {
-            // Cut text before "loc" and remove trailing commas
-            cleanDesc = rawDesc.substring(0, locIndex).trim().replace(/,\s*$/, "");
-        }
+        let cleanDesc = rawDesc.split(',')[0].trim();
         
         slide = `<div class="carousel-item py-2${ i == 0 ? ' active' : '' }">
             <img class="d-block img-fluid mx-auto mb-3" style="max-height: 480px;" alt="${carouselItems[i][4]}" src="${itemImg}">
