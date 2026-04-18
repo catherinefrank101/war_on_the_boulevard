@@ -1,0 +1,15 @@
+---
+# find all unique locations used in the metadata 
+layout: null
+---
+{%- assign items = site.data.posters -%}
+{%- assign locations_string = "" -%}
+{%- for item in items -%}
+  {%- if item.location and item.location != "" -%}
+    {%- assign locations_string = locations_string | append: ";" | append: item.location -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- assign uniqLocations = locations_string | split: ";" | compact | uniq | sort -%}
+location,link
+{% for l in uniqLocations %}{% if l != "" %}"{{ l | strip }}","{{ l | strip | url_param_escape | prepend: '/browse.html#' | absolute_url }}"
+{% endif %}{% endfor %}

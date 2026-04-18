@@ -1,0 +1,304 @@
+{% if site.data.theme.browse-child-objects == true %}
+{%- assign items = site.data[site.metadata] | where_exp: 'item','item.objectid' -%}
+{% else %}
+{%- assign items = site.data[site.metadata] | where_exp: 'item','item.objectid and item.parentid == nil' -%}
+{% endif %}
+{%- assign fields = site.data.config-browse -%}
+{% unless site.data.theme.faceted-search or site.data.theme.advanced-search %}
+{% include js/browse-simple-js.html %}
+{% else %}
+<script>
+/**
+ * BROWSE PAGE JAVASCRIPT - Fixed Version
+ */
+
+// =============================================================================
+// INITIALIZATION & DATA SETUP
+// =============================================================================
+
+var items = [
+    {% for item in items %}
+    { "description": {% if item.description %}{{ item.description | strip | escape | jsonify }}{% else %}""{% endif %},
+        {% for f in fields %}{% if item[f.field] %}{{ f.field | escape | jsonify }}:{{ item[f.field] | strip | jsonify }}, {%- endif -%}{%- endfor -%}
+        {% if item.image_thumb %}"img": {{ item.image_thumb | relative_url | jsonify }}, {%- endif -%} 
+        {% if item.display_template %}"display_template": {{ item.display_template | jsonify }}, {%- endif -%}
+        {% if item.format %}"format": {{ item.format | jsonify }}, {%- endif -%}
+        {% if item.image_alt_text %}"alt": {{ item.image_alt_text | escape | jsonify }}, {%- endif -%}
+        "title":{{ item.title | strip | escape | jsonify }},
+        {% if item.parentid %}"parent": {{ item.parentid | jsonify }}, {%- endif -%}
+        "id":{{ item.objectid | jsonify }} }{% unless forloop.last %},{% endunless %}{%- endfor -%}
+];
+
+const validFields = [{% for f in fields %}"{{ f.field }}",{% endfor %}"title","display_template","description"];
+const dateFields = ['date', 'created', 'published', 'modified', 'issued', 'date_created', 'date_published'];
+
+var loadingIcon, filterTextBox, browseItemsDiv;
+
+{% include helpers/get-icon.js %}
+
+// =============================================================================
+// CARD GENERATION
+// =============================================================================
+
+function makeCard(obj) {
+    const placeholder = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 3 2'%3E%3C/svg%3E";
+    const itemHref = `{{ '/items/' | relative_url }}${ obj.parent ? obj.parent + ".html#" + obj.id : obj.id + ".html"}`;
+    
+    let card = '<div class="item col-lg-4 col-md-6 mb-2"><div class="card h-100">';
+    
+    if(obj.img) {
+        card += `<a href="${itemHref}"><img class="card-img-top lazyload" src="${placeholder}" data-src="${obj.img}" alt="${obj.alt || obj.title}"></a>`;
+    }
+    
+    card += '<div class="card-body text-center">';
+
+    // 1. MAIN TITLE
+    card += `<h3 class="card-title h4"><a href="${itemHref}" class="text-dark">${obj.title}</a></h3>`;
+
+    // 2. DESCRIPTION AREA (Targeting "loc")
+    let descValue = obj.description || "";
+    if (descValue !== "") {
+        // Find "loc" regardless of case
+        let locIndex = descValue.toLowerCase().indexOf("loc");
+        let shortDesc = (locIndex !== -1) ? descValue.substring(0, locIndex).trim() : descValue;
+        
+        // Remove trailing commas if they exist after the cut
+        shortDesc = shortDesc.replace(/,\s*$/, "");
+
+        card += `<p class="card-text small text-muted mb-2"><strong>Description:</strong> ${shortDesc}</p>`;
+    }
+    
+    if(!obj.img) {
+        const thumbIcon = getIcon(obj.display_template, obj.format, "thumb");
+        if(thumbIcon) card += `<p><a href="${itemHref}">${thumbIcon}</a></p>`;
+    }
+    
+    if(obj.display_template) {
+        const mediaIcon = getIcon(obj.display_template, obj.format, "hidden");
+        card += `<p class="card-text"><small><a class="btn btn-sm btn-outline-secondary" href="{{ page.url | relative_url }}#display_template:${encodeURIComponent(obj.display_template)}">${obj.display_template.toUpperCase().replace("_"," ")} ${mediaIcon}</a></small></p>`;
+    }
+
+    // 3. METADATA LOOP (Applying same "loc" logic here as a backup)
+    card += '<p class="card-text">';
+    {% for f in fields %}{% unless f.hidden == 'true' %}
+    if(obj[{{ f.field | jsonify }}] && {{ f.field | jsonify }} !== 'title' && {{ f.field | jsonify }} !== 'description') {
+        let fieldValue = obj[{{ f.field | jsonify }}].toString().trim();
+        
+        // TEST: If this specific metadata field contains "loc", cut it
+        let locIndexField = fieldValue.toLowerCase().indexOf("loc");
+        if (locIndexField !== -1) {
+            fieldValue = fieldValue.substring(0, locIndexField).trim().replace(/,\s*$/, "");
+        }
+
+        {% if f.display_name %}card += '<strong>{{ f.display_name }}:</strong> ';{% endif %}
+        {% if f.btn == 'true' %}
+            const btns = fieldValue.split(";");
+            btns.forEach(btn => { if(btn.trim()) card += `<a class="btn btn-sm btn-secondary m-1 text-wrap" href="{{ page.url | relative_url }}#{{ f.field }}:${encodeURIComponent(btn.trim())}">${btn.trim()}</a>`; });
+        {% else %}
+            card += fieldValue;
+        {% endif %}
+        card += '<br>';
+    }
+    {% endunless %}{% endfor %}
+    card += '</p>';
+    
+    card += `<hr><a href="${itemHref}" class="btn btn-sm btn-light" title="link to ${obj.title}">View Full Record</a></div></div></div>`;
+    return card;
+}
+
+// =============================================================================
+// DATE UTILITIES
+// =============================================================================
+
+function isDateField(fieldName) {
+    return dateFields.includes(fieldName.toLowerCase());
+}
+
+function normalizeDateString(dateStr) {
+    if (!dateStr) return null;
+    const cleaned = dateStr.trim();
+    if (/^\d{4}$/.test(cleaned)) return { normalized: cleaned, type: 'year', year: parseInt(cleaned) };
+    const yearMonthMatch = cleaned.match(/^(\d{4})-(\d{1,2})$/);
+    if (yearMonthMatch) return { normalized: `${yearMonthMatch[1]}-${yearMonthMatch[2].padStart(2, '0')}`, type: 'year-month', year: parseInt(yearMonthMatch[1]), month: parseInt(yearMonthMatch[2]) };
+    const isoMatch = cleaned.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (isoMatch) return { normalized: `${isoMatch[1]}-${isoMatch[2].padStart(2, '0')}-${isoMatch[3].padStart(2, '0')}`, type: 'full', year: parseInt(isoMatch[1]), month: parseInt(isoMatch[2]), day: parseInt(isoMatch[3]) };
+    const usMatch = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (usMatch) return { normalized: `${usMatch[3]}-${usMatch[1].padStart(2, '0')}-${usMatch[2].padStart(2, '0')}`, type: 'full', year: parseInt(usMatch[3]), month: parseInt(usMatch[1]), day: parseInt(usMatch[2]) };
+    return null;
+}
+
+function isDateInRange(itemDate, startDate, endDate) {
+    const itemDateObj = normalizeDateString(itemDate);
+    if (!itemDateObj) return false;
+    const startDateObj = startDate ? normalizeDateString(startDate) : null;
+    const endDateObj = endDate ? normalizeDateString(endDate) : null;
+    if (itemDateObj.type === 'year') {
+        let inRange = true;
+        if (startDateObj) inRange = inRange && itemDateObj.year >= startDateObj.year;
+        if (endDateObj) inRange = inRange && itemDateObj.year <= endDateObj.year;
+        return inRange;
+    }
+    if (itemDateObj.type === 'year-month' || itemDateObj.type === 'full') {
+        let inRange = true;
+        if (startDateObj) inRange = inRange && itemDateObj.normalized >= startDateObj.normalized;
+        if (endDateObj) inRange = inRange && itemDateObj.normalized <= endDateObj.normalized;
+        return inRange;
+    }
+    return false;
+}
+
+// =============================================================================
+// SEARCH & FILTER FUNCTIONS
+// =============================================================================
+
+function itemMatches(item, field, query, startDate, endDate) {
+    if (isDateField(field) && (startDate || endDate)) {
+        if (!item[field]) return false;
+        const fieldValues = item[field].toString().split(";");
+        return fieldValues.some(value => isDateInRange(value.trim(), startDate, endDate));
+    }
+    if (query && query !== "") {
+        const q = query.trim().toUpperCase();
+        if (field === "all") {
+            for (let k in item) {
+                if (k !== "img" && item[k] && item[k].toString().toUpperCase().includes(q)) return true;
+            }
+            return false;
+        }
+        if (item[field]) {
+            const fieldValues = item[field].toString().split(";");
+            return fieldValues.some(value => value.trim().toUpperCase().includes(q));
+        }
+    }
+    return false;
+}
+
+function filterItems(arr, query, field = "all", startDate = "", endDate = "") {
+    loadingIcon.classList.remove("d-none");
+    let filteredItems = arr;
+    if (query || startDate || endDate) {
+        filteredItems = arr.filter(item => itemMatches(item, field, query, startDate, endDate));
+    }
+    updateDisplay(filteredItems, query, field, startDate, endDate);
+    loadingIcon.classList.add("d-none");
+}
+
+function advancedFilterItems(arr, searchCriteria) {
+    loadingIcon.classList.remove("d-none");
+    const filteredItems = arr.filter(item => {
+        if (!searchCriteria?.length) return true;
+        let result = true;
+        for (let i = 0; i < searchCriteria.length; i++) {
+            const {boolean, field, value, startDate, endDate} = searchCriteria[i];
+            if (!value && !startDate && !endDate) continue;
+            const matches = itemMatches(item, field, value, startDate, endDate);
+            switch(boolean) {
+                case 'OR':  result = result || matches; break;
+                case 'NOT': result = result && !matches; break;
+                default:    result = result && matches; break; 
+            }
+        }
+        return result;
+    });
+    updateDisplay(filteredItems);
+    displayActiveFilters(searchCriteria);
+    loadingIcon.classList.add("d-none");
+}
+
+function updateDisplay(filteredItems, query = "", field = "", startDate = "", endDate = "") {
+    const fragment = document.createDocumentFragment();
+    const tempDiv = document.createElement('div');
+    const cardsHTML = filteredItems.map(item => makeCard(item)).join('');
+    tempDiv.innerHTML = cardsHTML;
+    while (tempDiv.firstChild) { fragment.appendChild(tempDiv.firstChild); }
+    browseItemsDiv.innerHTML = '';
+    browseItemsDiv.appendChild(fragment);
+    document.querySelector("#numberOf").innerHTML = `${filteredItems.length} of {{ items | size }} items`;
+}
+
+// =============================================================================
+// UI & EVENT HANDLERS
+// =============================================================================
+
+function submitFilter() {
+    const query = filterTextBox.value;
+    const fieldSelect = document.querySelector("#fieldSelect");
+    const field = fieldSelect ? fieldSelect.value : "all";
+    if (isDateField(field)) {
+        const startDate = document.querySelector("#startDate").value;
+        const endDate = document.querySelector("#endDate").value;
+        const params = new URLSearchParams();
+        params.set('f0', field);
+        if (startDate) params.set('start0', startDate);
+        if (endDate) params.set('end0', endDate);
+        window.location = window.location.pathname + "?" + params.toString();
+    } else {
+        const hash = field === "all" ? query : `${field}:${query}`;
+        window.location.hash = encodeURIComponent(hash);
+    }
+    return false;
+}
+
+function resetFilter() {
+    filterTextBox.value = "";
+    window.location = window.location.pathname;
+    return false;
+}
+
+function handleHashChange() {
+    const hash = decodeURIComponent(location.hash.substr(1));
+    if (hash == 'maincontent') return;
+    if (!hash) {
+        filterItems(items, "", "all");
+        return;
+    }
+    let field = 'all';
+    let query = hash;
+    if (hash.includes(":")) {
+        const parts = hash.split(":");
+        field = parts[0];
+        query = parts[1];
+    }
+    filterItems(items, query, field);
+}
+
+function shuffle(array) {
+    let m = array.length, t, i;
+    while (m) {
+        i = Math.floor(Math.random() * m--);
+        t = array[m]; array[m] = array[i]; array[i] = t;
+    }
+    return array;
+}
+
+function sorting(jsonObject, keyToSortBy) {
+    jsonObject.sort((a, b) => {
+        let x = a[keyToSortBy]; let y = b[keyToSortBy];
+        if (typeof x === 'string') x = x.toUpperCase();
+        if (typeof y === 'string') y = y.toUpperCase();
+        return (x == null) ? 1 : (y == null) ? -1 : (x < y) ? -1 : (x > y) ? 1 : 0;
+    });
+}
+
+window.addEventListener('load', function() {
+    loadingIcon = document.querySelector("#loadingIcon");
+    filterTextBox = document.querySelector('#filterTextBox');
+    browseItemsDiv = document.querySelector("#browseItems");
+    handleHashChange();
+    window.addEventListener("hashchange", handleHashChange);
+    
+    // Form submission handlers
+    document.getElementById('browseFilter').addEventListener('submit', e => {
+        e.preventDefault();
+        submitFilter();
+        return false;
+    });
+});
+
+function displayActiveFilters(criteria) {
+    const div = document.getElementById('activeFilters');
+    if (div) div.innerHTML = criteria.length > 0 ? '<button class="btn btn-sm btn-outline-secondary" onclick="resetFilter()">Clear Filters</button>' : '';
+}
+
+</script>
+{% endunless %}

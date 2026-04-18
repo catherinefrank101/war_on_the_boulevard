@@ -1,0 +1,44 @@
+##########
+# collectionbuilder-csv
+# Jekyll Digital Collection Generator
+##########
+
+##########
+# REPOSITORY SETTINGS
+url: "https://catherinefrank101.github.io"
+baseurl: "/war_on_the_boulevard"
+source-code: "https://github.com/catherinefrank101/war_on_the_boulevard"
+
+##########
+# SITE SETTINGS
+title: "War on the Boulevard"
+tagline: "Punk Ephemera, Political Resistance, and Digital Archiving in the Reagan and Bush Era"
+description: "A digital collection of political punk posters and flyers from the Reagan and Bush administrations."
+keywords: "punk; reagan; bush; political posters; archives; DIY"
+author: "Catherine Frank"
+
+##########
+# COLLECTION SETTINGS
+# Your CSV file in the _data folder must be named 'posters.csv'
+metadata: "posters"
+
+##########
+# ORGANIZATION SETTINGS
+organization-name: "Cornell Goverment and Music by CF"
+organization-link: "https://music.cornell.edu/"
+organization-logo-banner: false
+organization-logo-nav: false
+
+##########
+# BUILD SETTINGS 
+# Helps the site find CSS/JS when hosted in a sub-folder like /draft01/
+relative_url: true
+lib-assets: "/assets/lib"
+exclude: [docs/, Rakefile, rakelib/, README.md, LICENSE, CITATION.cff, CODE_OF_CONDUCT.md, CONTRIBUTING.md, SECURITY.md]
+
+sass:
+  style: compressed
+
+##########
+# ROBOTS EXCLUDE
+# noindex: true

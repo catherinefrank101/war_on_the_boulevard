@@ -1,0 +1,24 @@
+---
+layout: null
+---
+{%- assign items = site.data.posters -%}
+{%- assign locs_all = "" -%}
+{%- for item in items -%}
+{%- if item.location and item.location != "" -%}
+{%- assign locs_all = locs_all | append: ";" | append: item.location -%}
+{%- endif -%}
+{%- endfor -%}
+{%- assign uniq_locs = locs_all | split: ";" | compact | uniq | sort -%}
+{
+"locations": [
+{%- for l in uniq_locs -%}
+{%- assign cleaned = l | strip -%}
+{%- if cleaned != "" -%}
+{
+"location": {{ cleaned | jsonify }},
+"link": {{ cleaned | url_param_escape | prepend: '/browse.html#' | absolute_url | jsonify }}
+}{% unless forloop.last %},{% endunless %}
+{%- endif -%}
+{%- endfor -%}
+]
+}
