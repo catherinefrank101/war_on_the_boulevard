@@ -1,6 +1,7 @@
 {%- comment -%} 
-    Carousel.html - Updated for Honors Project: 
-    Truncates Title before :, ,, or " c." and Description at first comma.
+    Carousel.html - Final Honors Project Version
+    Truncates Title before the first digit (0-9), colon, or comma.
+    Truncates Description at the first comma.
 {%- endcomment -%}
 
 {%- assign carousel-max = include.max | default: 48 -%}
@@ -16,6 +17,7 @@
 {%- endif -%}
 
 <style>
+    /* Clean background and auto-height for the container */
     #imageCarousel .carousel-item { height: auto !important; }
     .carousel-inner { background: transparent !important; border: none !important; }
 </style>
@@ -40,8 +42,10 @@
 </div>
 
 <script>
+    /* Data List: Title, ID, Image, ParentID, Alt, Description */
     var carouselItems = [ {% for c in carousel-items %}[ {{ c.title | escape | jsonify }}, "{{ c.objectid }}", {% if c.image_small %}{{ c.image_small | relative_url | jsonify }}{% else %}{{ c.image_thumb | relative_url | jsonify }}{% endif %}, "{{ c.parentid }}", {{ c.image_alt_text | default: c.title | escape | jsonify }}, {{ c.description | escape | jsonify }} ]{% unless forloop.last %}, {% endunless %}{% endfor %}];
     
+    /* Shuffle items randomly */
     carouselItems.sort(function() { return 0.5 - Math.random() });
 
     var carousel = document.getElementById("carouselInner");
@@ -51,21 +55,19 @@
         let itemImg = carouselItems[i][2];
         let itemLink = (carouselItems[i][3]) ? '{{ "/items/" | relative_url }}' + carouselItems[i][3] + '.html#' + carouselItems[i][1] : '{{ "/items/" | relative_url }}' + carouselItems[i][1] + '.html';
         
-        // --- TITLE CLEANING ---
+        // --- TITLE CLEANING LOGIC ---
         let rawTitle = carouselItems[i][0] || "";
         let cleanTitle = rawTitle;
         
-        // Stop title before any of these characters/patterns
-        let titleBreaks = [":", ",", " c."];
-        titleBreaks.forEach(function(brk) {
-            let index = cleanTitle.toLowerCase().indexOf(brk);
-            if (index !== -1) {
-                cleanTitle = cleanTitle.substring(0, index);
-            }
-        });
-        cleanTitle = cleanTitle.trim();
+        // This search looks for the FIRST occurrence of a number, comma, or colon
+        let stopIndex = rawTitle.search(/[0-9,:]/);
+        
+        if (stopIndex !== -1) {
+            // Cut the string at that position and trim whitespace
+            cleanTitle = rawTitle.substring(0, stopIndex).trim();
+        }
 
-        // --- DESCRIPTION CLEANING ---
+        // --- DESCRIPTION CLEANING LOGIC ---
         let rawDesc = carouselItems[i][5] || "";
         let cleanDesc = rawDesc.split(',')[0].trim();
         
