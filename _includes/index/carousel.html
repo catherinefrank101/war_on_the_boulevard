@@ -1,6 +1,7 @@
 {%- comment -%} 
     Carousel.html - Final Honors Project Version
     Truncates Title before the first digit (0-9), colon, or comma.
+    Explicitly removes trailing "c." or "c" left over from circa dates.
     Truncates Description at the first comma.
 {%- endcomment -%}
 
@@ -55,19 +56,25 @@
         let itemImg = carouselItems[i][2];
         let itemLink = (carouselItems[i][3]) ? '{{ "/items/" | relative_url }}' + carouselItems[i][3] + '.html#' + carouselItems[i][1] : '{{ "/items/" | relative_url }}' + carouselItems[i][1] + '.html';
         
-        // --- TITLE CLEANING LOGIC ---
+        // --- TITLE CLEANING ---
         let rawTitle = carouselItems[i][0] || "";
         let cleanTitle = rawTitle;
         
-        // This search looks for the FIRST occurrence of a number, comma, or colon
+        // Find the first occurrence of a number, comma, or colon
         let stopIndex = rawTitle.search(/[0-9,:]/);
         
         if (stopIndex !== -1) {
-            // Cut the string at that position and trim whitespace
             cleanTitle = rawTitle.substring(0, stopIndex).trim();
         }
 
-        // --- DESCRIPTION CLEANING LOGIC ---
+        // Remove "c." or "c" if it is left hanging at the end of the cleaned title
+        if (cleanTitle.toLowerCase().endsWith(" c.")) {
+            cleanTitle = cleanTitle.substring(0, cleanTitle.length - 3).trim();
+        } else if (cleanTitle.toLowerCase().endsWith(" c")) {
+            cleanTitle = cleanTitle.substring(0, cleanTitle.length - 2).trim();
+        }
+
+        // --- DESCRIPTION CLEANING ---
         let rawDesc = carouselItems[i][5] || "";
         let cleanDesc = rawDesc.split(',')[0].trim();
         
