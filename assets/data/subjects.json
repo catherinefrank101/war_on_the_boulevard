@@ -1,34 +1,38 @@
 ---
-# find and count unique subjects
 layout: null
 ---
 {%- assign items = site.data.posters -%}
-{%- assign subjects_string = "" -%}
+{%- assign all_subjects = "" | split: "," -%}
 
 {%- for item in items -%}
   {%- if item.subject and item.subject != "" -%}
-    {%- assign subjects_string = subjects_string | append: ";" | append: item.subject -%}
+    {%- assign poster_subjects = item.subject | split: ";" -%}
+    {%- for s in poster_subjects -%}
+      {%- assign all_subjects = all_subjects | push: s | strip -%}
+    {%- endfor -%}
   {%- endif -%}
 {%- endfor -%}
 
-{%- assign raw_subjects = subjects_string | split: ";" | compact | uniq | sort -%}
-{%- assign final_subjects = "" | split: "," -%}
+{%- assign unique_subjects = all_subjects | uniq -%}
+{%- assign subject_counts = "" | split: "," -%}
 
-{%- for s in raw_subjects -%}
-  {%- assign cleaned = s | strip -%}
-  {%- if cleaned != "" -%}
-    {%- capture subject_obj -%}
-      {
-        "subject": {{ cleaned | jsonify }},
-        "link": {{ cleaned | url_param_escape | prepend: '/browse.html#' | absolute_url | jsonify }}
-      }
-    {%- endcapture -%}
-    {%- assign final_subjects = final_subjects | push: subject_obj -%}
-  {%- endif -%}
+{%- for u in unique_subjects -%}
+  {%- assign count = all_subjects | where: "", u | size -%}
+  {%- capture entry -%}{{ count | prepend: "00000" | slice: -5, 5 }}:{{ u }}{%- endcapture -%}
+  {%- assign subject_counts = subject_counts | push: entry -%}
 {%- endfor -%}
+
+{%- assign sorted_subjects = subject_counts | sort | reverse | slice: 0, 150 -%}
 
 {
   "subjects": [
-    {{ final_subjects | join: "," }}
+    {%- for entry in sorted_subjects -%}
+      {%- assign parts = entry | split: ":" -%}
+      {
+        "subject": {{ parts[1] | jsonify }},
+        "count": {{ parts[0] | plus: 0 }},
+        "link": {{ parts[1] | url_param_escape | prepend: '/browse.html#' | absolute_url | jsonify }}
+      }{% unless forloop.last %},{% endunless %}
+    {%- endfor -%}
   ]
 }
