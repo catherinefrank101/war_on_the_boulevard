@@ -33,10 +33,16 @@
     {% if include.stopwords %}/* apply stopwords */
     var stopWords = {{ include.stopwords | downcase | split: ';' | jsonify }};
     terms = terms.filter(function(a) { return stopWords.indexOf(a[0]) < 0;});{% endif %}
+    
+    /* Sort by count (descending) and slice to top 150 */
+    terms.sort(function(a, b) { return b[1] - a[1]; });
+    terms = terms.slice(0, 150);
+
     /* calculate max size */
     var counts = terms.map(function(obj){ return obj[1]; });
     var countMax = counts.reduce(function(a, b) { return Math.max(a, b); });
     var cloud = document.getElementById("{{ cloud_id }}");
+    
     {% if include.shuffle == true %}
     /* Fisher-Yates shuffle https://bost.ocks.org/mike/shuffle/ */
     function shuffle(array) {
