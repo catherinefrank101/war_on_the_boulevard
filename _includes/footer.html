@@ -37,3 +37,12 @@
         <p class="text-white">Last updated {{ site.time | date: '%Y' }}</p>
     </div>
 </footer>
+
+<script>
+  // Disable right-click context menu on images to help prevent unauthorized saving
+  document.addEventListener('contextmenu', function(e) {
+    if (e.target.tagName === 'IMG') {
+      e.preventDefault();
+    }
+  }, false);
+</script>
