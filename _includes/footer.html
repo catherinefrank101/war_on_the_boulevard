@@ -39,10 +39,8 @@
 </footer>
 
 <script>
-  // Disable right-click context menu on images to help prevent unauthorized saving
+  // Disable right-click context menu globally to help prevent unauthorized saving
   document.addEventListener('contextmenu', function(e) {
-    if (e.target.tagName === 'IMG') {
-      e.preventDefault();
-    }
+    e.preventDefault();
   }, false);
 </script>
